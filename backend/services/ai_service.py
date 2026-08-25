@@ -1,6 +1,8 @@
 import json
 import logging
+import re
 from typing import Optional
+from openai import AsyncOpenAI  # CRITICAL 5 FIX: Import AsyncOpenAI
 from config import settings
 from schemas import AIIntent
 
@@ -47,7 +49,6 @@ class AIService:
 
         # Price detection (assumes "NIM" in query)
         max_price_luna = None
-        import re
         price_match = re.search(r"(\d+)\s*nim", q)
         if price_match:
             max_price_luna = int(price_match.group(1)) * 100_000
@@ -66,11 +67,12 @@ class AIService:
             max_price_luna=max_price_luna,
             attributes=attributes,
         )
+
     async def _openai_extract(self, query: str) -> AIIntent:
         """Real OpenAI integration. Output is strictly validated."""
         try:
-            from openai import OpenAI
-            client = OpenAI(api_key=settings.openai_api_key)
+            # CRITICAL 5 FIX: Use AsyncOpenAI to avoid blocking the FastAPI event loop
+            client = AsyncOpenAI(api_key=settings.openai_api_key)
 
             system_prompt = (
                 "You are an intent extractor for a product catalog. "
@@ -81,7 +83,8 @@ class AIService:
                 "Return ONLY valid JSON. No explanation."
             )
 
-            response = client.chat.completions.create(
+            # CRITICAL 5 FIX: Await the async API call
+            response = await client.chat.completions.create(
                 model=settings.openai_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
