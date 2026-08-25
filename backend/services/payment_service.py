@@ -4,8 +4,6 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-NIMIQ_NODE_URL = "https://node.nimiq.watch:443" 
-
 async def verify_nimiq_transaction(
     tx_hash: str, 
     expected_recipient: str, 
@@ -13,10 +11,6 @@ async def verify_nimiq_transaction(
     expected_memo: str,
     expected_network: str
 ) -> dict:
-    """
-    Verifies a transaction on the Nimiq network.
-    SECURITY: Never trust the frontend. Always verify on-chain.
-    """
     try:
         payload = {
             "jsonrpc": "2.0",
@@ -26,7 +20,7 @@ async def verify_nimiq_transaction(
         }
         
         async with httpx.AsyncClient() as client:
-            response = await client.post(NIMIQ_NODE_URL, json=payload, timeout=10.0)
+            response = await client.post(settings.nimiq_rpc_url, json=payload, timeout=10.0)
             response.raise_for_status()
             data = response.json()
 
@@ -35,10 +29,15 @@ async def verify_nimiq_transaction(
 
         tx = data["result"]
         
-        # 1. Verify Recipient (normalize spaces)
-        tx_recipient = tx.get("recipient", {}).get("address", "").replace(" ", "")
-        if tx_recipient != expected_recipient.replace(" ", ""):
-            return {"valid": False, "reason": "Recipient mismatch"}
+        # 1. Verify Recipient (robust extraction)
+        recipient_data = tx.get("recipient", {})
+        if isinstance(recipient_data, dict):
+            tx_recipient = recipient_data.get("userFriendlyAddress", "") or recipient_data.get("address", "")
+        else:
+            tx_recipient = str(recipient_data)
+            
+        if tx_recipient.replace(" ", "").upper() != expected_recipient.replace(" ", "").upper():
+            return {"valid": False, "reason": f"Recipient mismatch: expected '{expected_recipient}', got '{tx_recipient}'"}
             
         # 2. Verify Amount
         if int(tx.get("value", 0)) != expected_amount_luna:
@@ -53,23 +52,23 @@ async def verify_nimiq_transaction(
         if tx.get("state") != "confirmed":
             return {"valid": False, "reason": "Transaction not confirmed"}
 
-        # 5. Verify Memo/Data
-        # LIMITATION: The RPC 'data' field encoding (hex vs utf-8) is not strictly 
-        # standardized in the public docs. We attempt a safe decode.
+        # 5. STRICT Memo Verification
         tx_data = tx.get("data")
-        if tx_data:
-            try:
-                if isinstance(tx_data, str) and tx_data.startswith("0x"):
-                    decoded_data = bytes.fromhex(tx_data[2:]).decode('utf-8', errors='ignore')
-                else:
-                    decoded_data = str(tx_data)
-                    
-                if expected_memo not in decoded_data:
-                    logger.warning(f"Memo mismatch. Expected: {expected_memo}, Got: {decoded_data}")
-                    # We do not fail strictly here due to encoding ambiguity, 
-                    # relying on txHash uniqueness for replay protection.
-            except Exception as e:
-                logger.warning(f"Failed to decode transaction data: {e}")
+        if not tx_data:
+            return {"valid": False, "reason": "Missing transaction data/memo"}
+            
+        try:
+            if isinstance(tx_data, str) and tx_data.startswith("0x"):
+                decoded_data = bytes.fromhex(tx_data[2:]).decode('utf-8', errors='strict')
+            else:
+                decoded_data = str(tx_data)
+                
+            if expected_memo not in decoded_data:
+                return {"valid": False, "reason": f"Memo mismatch. Expected: '{expected_memo}', Got: '{decoded_data}'"}
+        except ValueError as e:
+            return {"valid": False, "reason": f"Malformed transaction data (hex decode failed): {e}"}
+        except UnicodeDecodeError as e:
+            return {"valid": False, "reason": f"Malformed transaction data (utf-8 decode failed): {e}"}
                 
         return {"valid": True, "reason": "Verified"}
 
