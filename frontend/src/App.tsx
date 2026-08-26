@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SearchBar } from "./components/SearchBar";
 import { ProductList } from "./components/ProductList";
 import { StatusMessage } from "./components/StatusMessage";
@@ -16,7 +16,12 @@ function App() {
   );
 
   const handleSearch = async (query: string) => {
-    // ... (keep existing search logic) ...
+    // 1. Sync URL for sharing (Distribution feature)
+    const url = new URL(window.location.href);
+    url.searchParams.set("search", query);
+    window.history.replaceState({}, "", url.toString());
+
+    // 2. Execute search
     setIsLoading(true);
     setError(null);
     setHasSearched(true);
@@ -31,6 +36,15 @@ function App() {
     }
   };
 
+  // Auto-trigger search if URL contains ?search=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialQuery = params.get("search");
+    if (initialQuery && initialQuery.trim().length > 0) {
+      handleSearch(initialQuery.trim());
+    }
+  }, []);
+
   const handleBuy = async (product: ProductResult) => {
     try {
       const intent = await createOrder(product.id, 1);
@@ -38,6 +52,12 @@ function App() {
     } catch (err: any) {
       setError(err.message || "Failed to create order");
     }
+  };
+
+  const handleCheckoutSuccess = () => {
+    setCheckoutIntent(null);
+    setError(null);
+    alert("Order placed successfully! Check your Nimiq Pay history.");
   };
 
   return (
@@ -74,12 +94,7 @@ function App() {
         <CheckoutModal
           intent={checkoutIntent}
           onClose={() => setCheckoutIntent(null)}
-          onSuccess={() => {
-            setCheckoutIntent(null);
-            setError(null);
-            // In a real app, we'd refresh the cart or show a success page
-            alert("Order placed successfully!");
-          }}
+          onSuccess={handleCheckoutSuccess}
         />
       )}
     </div>
