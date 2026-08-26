@@ -41,7 +41,7 @@ async def test_verify_incorrect_memo():
     mock_data = get_mock_tx_success()
     with patch("httpx.AsyncClient.post", side_effect=make_mock_post(mock_data)):
         result = await verify_nimiq_transaction("mock_tx_hash_123", "NQ00 DEMO", 100000, "WRONG_MEMO", "testnet")
-        assert result["valid"] is False and "Memo mismatch" in result["reason"]
+        assert result["valid"] is False and "Expected exact match" in result["reason"]
 
 @pytest.mark.asyncio
 async def test_verify_missing_memo():
@@ -91,6 +91,16 @@ async def test_verify_wrong_amount():
         result = await verify_nimiq_transaction("mock_tx_hash_123", "NQ00 DEMO", 99999, "NIMSHOP:test_order", "testnet")
         assert result["valid"] is False and "Amount mismatch" in result["reason"]
 
+@pytest.mark.asyncio
+async def test_verify_memo_is_substring_but_not_exact():
+    """Security test: Ensure attacker cannot append data to a valid memo."""
+    mock_data = get_mock_tx_success()
+    # Hex for "NIMSHOP:test_order-ATTACKER-DATA"
+    mock_data["result"]["data"] = "0x4e494d53484f503a746573745f6f726465722d41545441434b45522d44415441"
+    with patch("httpx.AsyncClient.post", side_effect=make_mock_post(mock_data)):
+        result = await verify_nimiq_transaction("mock_tx_hash_123", "NQ00 DEMO", 100000, "NIMSHOP:test_order", "testnet")
+        assert result["valid"] is False and "Expected exact match" in result["reason"]
+
 def test_reused_tx_hash(client: TestClient, db_session):
     seller = Seller(id=uuid.uuid4(), name="Test", nimiq_address="NQ00", is_active=True)
     db_session.add(seller); db_session.commit()
@@ -120,7 +130,6 @@ def test_expired_reservation_and_inventory_restoration(client: TestClient, db_se
     order_id_str = res1.json()["order_id"]
     
     order = db_session.query(Order).filter(Order.id == uuid.UUID(order_id_str)).first()
-    # Use naive UTC to match SQLite behavior and avoid deprecation warnings
     order.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=1)
     db_session.commit()
     

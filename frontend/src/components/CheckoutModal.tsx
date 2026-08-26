@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { OrderIntent, OrderStatus } from "../types";
+import { OrderIntent } from "../types";
 import { sendNimPayment } from "../nimiq";
 import { verifyOrder } from "../api";
 import { formatNim } from "../utils/format";

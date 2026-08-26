@@ -29,7 +29,7 @@ async def verify_nimiq_transaction(
 
         tx = data["result"]
         
-        # 1. Verify Recipient (robust extraction)
+        # 1. Verify Recipient
         recipient_data = tx.get("recipient", {})
         if isinstance(recipient_data, dict):
             tx_recipient = recipient_data.get("userFriendlyAddress", "") or recipient_data.get("address", "")
@@ -52,7 +52,7 @@ async def verify_nimiq_transaction(
         if tx.get("state") != "confirmed":
             return {"valid": False, "reason": "Transaction not confirmed"}
 
-        # 5. STRICT Memo Verification
+        # 5. STRICT Memo Verification (EXACT EQUALITY)
         tx_data = tx.get("data")
         if not tx_data:
             return {"valid": False, "reason": "Missing transaction data/memo"}
@@ -63,8 +63,9 @@ async def verify_nimiq_transaction(
             else:
                 decoded_data = str(tx_data)
                 
-            if expected_memo not in decoded_data:
-                return {"valid": False, "reason": f"Memo mismatch. Expected: '{expected_memo}', Got: '{decoded_data}'"}
+            # Exact equality check prevents substring injection attacks
+            if decoded_data != expected_memo:
+                return {"valid": False, "reason": f"Memo mismatch. Expected exact match: '{expected_memo}', Got: '{decoded_data}'"}
         except ValueError as e:
             return {"valid": False, "reason": f"Malformed transaction data (hex decode failed): {e}"}
         except UnicodeDecodeError as e:

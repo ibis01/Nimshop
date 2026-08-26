@@ -3,9 +3,10 @@ import { ProductCard } from "./ProductCard";
 
 interface Props {
   results: ProductResult[];
+  onBuy: (product: ProductResult) => void;
 }
 
-export function ProductList({ results }: Props) {
+export function ProductList({ results, onBuy }: Props) {
   if (results.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -16,12 +17,13 @@ export function ProductList({ results }: Props) {
   }
 
   return (
-    <div className="w-full max-w-md space-y-3">
+    <div className="w-full max-w-md space-y-4">
       {results.map((product, index) => (
         <ProductCard
           key={product.id}
           product={product}
           isBestMatch={index === 0}
+          onBuy={onBuy}
         />
       ))}
     </div>

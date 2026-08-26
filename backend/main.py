@@ -98,7 +98,6 @@ def create_order(req: OrderRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Order creation conflict")
 
 
-
 @app.post("/api/orders/verify", response_model=OrderStatusResponse)
 async def verify_order(req: OrderVerifyRequest, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == req.order_id).first()
@@ -112,6 +111,10 @@ async def verify_order(req: OrderVerifyRequest, db: Session = Depends(get_db)):
             tx_hash=str(order.tx_hash) if order.tx_hash else None # type: ignore[arg-type]
         )
         
+    # Prevent retroactive payment of cancelled/failed orders
+    if order.status in ["cancelled", "failed"]: # type: ignore[operator]
+        raise HTTPException(status_code=400, detail="Order is no longer pending")
+        
     if order.tx_hash:
         raise HTTPException(status_code=409, detail="Order already has a transaction associated")
 
@@ -119,7 +122,7 @@ async def verify_order(req: OrderVerifyRequest, db: Session = Depends(get_db)):
     if existing_tx:
         raise HTTPException(status_code=409, detail="Transaction hash already used")
 
-    # Check reservation expiry (both are naive UTC to avoid SQLite tz issues and deprecation warnings)
+    # Lazy reservation expiry check
     if str(order.status) == "pending" and order.expires_at < datetime.now(timezone.utc).replace(tzinfo=None): # type: ignore[arg-type]
         order.status = "cancelled" # type: ignore[assignment]
         product = db.query(Product).filter(Product.id == order.product_id).first()
