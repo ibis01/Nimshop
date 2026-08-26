@@ -36,14 +36,25 @@ function App() {
     }
   };
 
-  // Clean React pattern: No exhaustive-deps ESLint warnings
+  // Clean React pattern: Inline initial fetch to avoid dependency array issues
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const initialQuery = params.get("search");
     if (initialQuery && initialQuery.trim().length > 0) {
-      executeSearch(initialQuery.trim());
+      const query = initialQuery.trim();
+      setSearchQuery(query);
+      setIsLoading(true);
+      setError(null);
+      setHasSearched(true);
+
+      searchProducts(query)
+        .then((response) => setResults(response.results))
+        .catch((err: any) => {
+          setError(err.message || "Search failed");
+          setResults([]);
+        })
+        .finally(() => setIsLoading(false));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBuy = async (product: ProductResult) => {

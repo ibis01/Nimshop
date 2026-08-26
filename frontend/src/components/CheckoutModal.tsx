@@ -30,7 +30,7 @@ export function CheckoutModal({ intent, onClose, onSuccess }: Props) {
 
       if (result.status === "paid") {
         setStatus("success");
-        setTimeout(onSuccess, 3500);
+        // Removed setTimeout: Success state remains visible until user clicks "Continue Shopping"
       } else {
         throw new Error("Payment verification failed");
       }
