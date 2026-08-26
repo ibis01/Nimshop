@@ -13,15 +13,18 @@ function App() {
   const [checkoutIntent, setCheckoutIntent] = useState<OrderIntent | null>(
     null,
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const handleSearch = async (query: string) => {
+  const executeSearch = async (query: string) => {
+    setSearchQuery(query);
+    setIsLoading(true);
+    setError(null);
+    setHasSearched(true);
+
     const url = new URL(window.location.href);
     url.searchParams.set("search", query);
     window.history.replaceState({}, "", url.toString());
 
-    setIsLoading(true);
-    setError(null);
-    setHasSearched(true);
     try {
       const response = await searchProducts(query);
       setResults(response.results);
@@ -33,12 +36,14 @@ function App() {
     }
   };
 
+  // Clean React pattern: No exhaustive-deps ESLint warnings
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const initialQuery = params.get("search");
     if (initialQuery && initialQuery.trim().length > 0) {
-      handleSearch(initialQuery.trim());
+      executeSearch(initialQuery.trim());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBuy = async (product: ProductResult) => {
@@ -55,6 +60,7 @@ function App() {
     setError(null);
     setResults([]);
     setHasSearched(false);
+    setSearchQuery("");
     const url = new URL(window.location.href);
     url.searchParams.delete("search");
     window.history.replaceState({}, "", url.toString());
@@ -63,38 +69,53 @@ function App() {
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col">
       <div className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen">
-        <div className="pt-8 pb-6 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">
+        {/* Header */}
+        <div
+          className={`pt-8 pb-6 text-center transition-all duration-500 ${hasSearched ? "pt-4 pb-2" : "pt-12 pb-8"}`}
+        >
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight mb-1">
             Nim<span className="text-orange-500">Shop</span>
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-sm font-medium">
             {hasSearched
               ? "AI-powered product discovery"
-              : "Your AI shopping assistant"}
+              : "Shop smarter with NIM"}
           </p>
         </div>
 
-        <div className="mb-8">
-          <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+        {/* Search Section */}
+        <div
+          className={`mb-6 transition-all duration-500 ${hasSearched ? "mb-4" : "mb-8"}`}
+        >
+          <SearchBar
+            onSearch={executeSearch}
+            isLoading={isLoading}
+            isHero={!hasSearched}
+          />
         </div>
 
+        {/* AI Personality & Loading State */}
         {isLoading && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-in">
-            <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />
-            <p className="text-gray-900 font-semibold text-lg">
-              Understanding your request
-            </p>
-            <p className="text-gray-500 text-sm mt-1">
-              Finding the best matches for you...
+          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-up px-6">
+            <div className="relative mb-6">
+              <div className="w-12 h-12 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center text-orange-500 text-lg">
+                ✨
+              </div>
+            </div>
+            <p className="text-gray-900 font-semibold text-lg mb-1">Got it.</p>
+            <p className="text-gray-500 text-sm">
+              Looking for {searchQuery.toLowerCase()}...
             </p>
           </div>
         )}
 
+        {/* Error State */}
         {error && !isLoading && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-in">
-            <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
+          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-up px-6">
+            <div className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-4">
               <svg
-                className="w-6 h-6"
+                className="w-7 h-7"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -114,11 +135,12 @@ function App() {
           </div>
         )}
 
+        {/* Empty State */}
         {!isLoading && !error && hasSearched && results.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-in">
-            <div className="w-12 h-12 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mb-4">
+          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-up px-6">
+            <div className="w-14 h-14 bg-gray-100 text-gray-400 rounded-2xl flex items-center justify-center mb-4">
               <svg
-                className="w-6 h-6"
+                className="w-7 h-7"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -138,11 +160,15 @@ function App() {
           </div>
         )}
 
+        {/* Results State */}
         {!isLoading && results.length > 0 && (
-          <div className="flex-1 animate-fade-in">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-gray-500 font-medium">
+          <div className="flex-1 animate-fade-up">
+            <div className="mb-5 px-1">
+              <p className="text-sm text-gray-500 font-medium mb-1">
                 Found {results.length} match{results.length !== 1 ? "es" : ""}
+              </p>
+              <p className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                🏆 I think you'll like this one.
               </p>
             </div>
             <ProductList results={results} onBuy={handleBuy} />

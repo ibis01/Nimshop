@@ -11,18 +11,17 @@ export function ProductList({ results, onBuy }: Props) {
     return (
       <div className="text-center py-12 text-gray-500">
         <p className="text-lg">No products found</p>
-        <p className="text-sm mt-1">Try a different search</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-md space-y-4">
+    <div className="w-full space-y-0">
       {results.map((product, index) => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          isBestMatch={index === 0}
+        <ProductCard 
+          key={product.id} 
+          product={product} 
+          isBestMatch={index === 0} 
           onBuy={onBuy}
         />
       ))}
