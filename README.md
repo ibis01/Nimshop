@@ -1,12 +1,59 @@
-## Architecture & Deployment
+## 🚀 Deployment Guide
 
-### Database
-- **Development/Testing**: SQLite (`sqlite:///./nimshop.db`) is used for local iteration and CI/CD tests due to its zero-configuration nature.
-- **Production**: **PostgreSQL is strictly required**. The application utilizes `with_for_update()` for row-level locking to prevent inventory race conditions, a feature fully supported and optimized in PostgreSQL. Set `DATABASE_URL=postgresql://user:pass@host:5432/db` in production.
+NimShop is designed for secure, production-grade deployment. Follow these steps to deploy the frontend, backend, and database.
 
-### Inventory Reservation (Lazy Expiry)
-To prevent overselling without introducing complex background worker infrastructure (e.g., Celery), NimShop employs a **lazy reservation expiry** pattern:
-1. When an order is created, inventory is immediately deducted, and a 15-minute `expires_at` timestamp is set.
-2. If the user does not complete the Nimiq Pay transaction within 15 minutes, the *next* interaction with that order (e.g., a delayed verification request) will trigger the expiry check.
-3. The order status is atomically transitioned to `cancelled`, and the inventory is restored exactly once.
-4. Once `cancelled` or `failed`, an order cannot be retroactively marked as `paid`, ensuring state machine integrity.
+### 1. PostgreSQL Setup
+
+Production requires PostgreSQL. Create a database and note the connection string.
+_Do not use SQLite in production._
+
+### 2. Backend Deployment (e.g., Railway, Render, VPS)
+
+1. Set the following environment variables:
+   - `DATABASE_URL`: Your PostgreSQL connection string.
+   - `FRONTEND_URL`: The exact HTTPS URL of your deployed frontend (e.g., `https://nimshop.vercel.app`).
+   - `NIMIQ_NETWORK`: `testnet` (or `mainnet` for production).
+   - `NIMIQ_RPC_URL`: `https://rpc.testnet.nimiqwatch.com/`
+2. Initialize the database schema (handled automatically by FastAPI lifespan, or run `python seed.py` once to seed initial products).
+3. Verify the `/health` endpoint returns `{"status": "healthy"}`.
+
+### 3. Frontend Deployment (e.g., Vercel, Netlify)
+
+1. Set the following environment variable:
+   - `VITE_API_URL`: The exact HTTPS URL of your deployed backend (e.g., `https://nimshop-api.railway.app`).
+2. Run `npm run build` and deploy the `dist` folder.
+3. Ensure the deployment serves over HTTPS (required for Nimiq Pay WebView).
+
+### 4. Connecting Frontend and Backend
+
+Ensure the `FRONTEND_URL` in the backend exactly matches the deployed frontend domain to satisfy strict CORS policies.
+
+---
+
+## ✅ Deployment Readiness Checklist
+
+### Backend Deployment
+
+- [ ] Configure `DATABASE_URL` (PostgreSQL)
+- [ ] Configure `FRONTEND_URL` (Exact HTTPS frontend URL)
+- [ ] Configure `NIMIQ_NETWORK`
+- [ ] Configure `NIMIQ_RPC_URL`
+- [ ] Initialize database and run `python seed.py`
+- [ ] Confirm `GET /health` returns 200 OK
+
+### Frontend Deployment
+
+- [ ] Configure `VITE_API_URL` (Exact HTTPS backend URL)
+- [ ] Build successfully (`npm run build`)
+- [ ] Deploy HTTPS version
+- [ ] Confirm API connectivity from deployed frontend
+
+### Nimiq Validation (Manual)
+
+- [ ] Open NimShop in supported Nimiq Pay / Mini App environment
+- [ ] Connect wallet
+- [ ] Create order via AI search
+- [ ] Execute real test transaction
+- [ ] Capture real `txHash`
+- [ ] Verify backend transaction validation (`/api/orders/verify`)
+- [ ] Confirm order status transitions `PENDING` → `PAID`

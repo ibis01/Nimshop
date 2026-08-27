@@ -22,8 +22,13 @@ async def verify_nimiq_transaction(tx_hash: str, recipient: str, amount_luna: in
             response.raise_for_status()
             data = response.json()
             
+        # Handle Nimiq RPC specific error format for missing transactions
         if "error" in data:
-            return {"valid": False, "reason": f"RPC Error: {data['error'].get('message', 'Unknown error')}"}
+            error_msg = data['error'].get('message', '')
+            error_data = str(data['error'].get('data', ''))
+            if "not found" in error_msg.lower() or "not found" in error_data.lower():
+                return {"valid": False, "reason": "Transaction not found on chain"}
+            return {"valid": False, "reason": f"RPC Error: {error_msg}"}
             
         tx = data.get("result")
         if not tx:
@@ -41,7 +46,6 @@ async def verify_nimiq_transaction(tx_hash: str, recipient: str, amount_luna: in
             
         # 3. NORMALIZED RECIPIENT COMPARISON
         tx_recipient = tx.get("recipient", {}).get("userFriendlyAddress") or tx.get("recipient", {}).get("address")
-        # Normalize: remove spaces, uppercase
         normalized_tx_recipient = str(tx_recipient).replace(" ", "").upper()
         normalized_expected_recipient = str(recipient).replace(" ", "").upper()
         
