@@ -1,3 +1,4 @@
+import os
 import logging
 import uuid
 from typing import Optional
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="NimShop Backend", version="0.4.1", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permissive for local dev
+    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:5173")],  # Permissive for local dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

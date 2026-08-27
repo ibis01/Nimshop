@@ -1,6 +1,11 @@
 import { SearchResponse, OrderIntent, OrderStatus } from "./types";
 
-const API_BASE = "http://localhost:8000";
+const isDev = import.meta.env.DEV;
+const API_BASE = import.meta.env.VITE_API_URL || (isDev ? "http://localhost:8000" : "");
+
+if (!API_BASE && !isDev) {
+  throw new Error("VITE_API_URL must be defined in production environment variables");
+}
 
 export async function searchProducts(query: string): Promise<SearchResponse> {
   const res = await fetch(`${API_BASE}/api/search`, {
