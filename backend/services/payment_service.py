@@ -1,16 +1,14 @@
-import logging
 import httpx
+import logging
 from config import settings
 
 logger = logging.getLogger(__name__)
 
-async def verify_nimiq_transaction(
-    tx_hash: str, 
-    expected_recipient: str, 
-    expected_amount_luna: int, 
-    expected_memo: str,
-    expected_network: str
-) -> dict:
+async def verify_nimiq_transaction(tx_hash: str, recipient: str, amount_luna: int, memo: str, network: str) -> dict:
+    """
+    Verifies a Nimiq transaction on-chain with strict security checks.
+    Returns {"valid": True} or {"valid": False, "reason": "..."}
+    """
     try:
         payload = {
             "jsonrpc": "2.0",
@@ -19,60 +17,59 @@ async def verify_nimiq_transaction(
             "params": [tx_hash]
         }
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(settings.nimiq_rpc_url, json=payload, timeout=10.0)
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(settings.NIMIQ_RPC_URL, json=payload)
             response.raise_for_status()
             data = response.json()
-
-        if "result" not in data or data["result"] is None:
-            return {"valid": False, "reason": "Transaction not found"}
-
-        tx = data["result"]
-        
-        # 1. Verify Recipient
-        recipient_data = tx.get("recipient", {})
-        if isinstance(recipient_data, dict):
-            tx_recipient = recipient_data.get("userFriendlyAddress", "") or recipient_data.get("address", "")
-        else:
-            tx_recipient = str(recipient_data)
             
-        if tx_recipient.replace(" ", "").upper() != expected_recipient.replace(" ", "").upper():
-            return {"valid": False, "reason": f"Recipient mismatch: expected '{expected_recipient}', got '{tx_recipient}'"}
+        if "error" in data:
+            return {"valid": False, "reason": f"RPC Error: {data['error'].get('message', 'Unknown error')}"}
             
-        # 2. Verify Amount
-        if int(tx.get("value", 0)) != expected_amount_luna:
-            return {"valid": False, "reason": "Amount mismatch"}
-
-        # 3. Verify Network (1 = Mainnet, 4 = Testnet)
-        expected_net_id = 1 if expected_network == "mainnet" else 4
-        if int(tx.get("networkId", 0)) != expected_net_id:
-            return {"valid": False, "reason": "Network mismatch"}
-
-        # 4. Verify Finality/State
+        tx = data.get("result")
+        if not tx:
+            return {"valid": False, "reason": "Transaction not found on chain"}
+            
+        # 1. Check state (must be confirmed)
         if tx.get("state") != "confirmed":
-            return {"valid": False, "reason": "Transaction not confirmed"}
-
-        # 5. STRICT Memo Verification (EXACT EQUALITY)
-        tx_data = tx.get("data")
-        if not tx_data:
-            return {"valid": False, "reason": "Missing transaction data/memo"}
+            return {"valid": False, "reason": "Transaction is not confirmed"}
             
+        # 2. Check network (Mainnet = 1, Testnet = 4)
+        tx_network_id = tx.get("networkId")
+        if network == "testnet" and tx_network_id == 1:
+            return {"valid": False, "reason": "Network mismatch"}
+        if network == "mainnet" and tx_network_id != 1:
+            return {"valid": False, "reason": "Network mismatch"}
+            
+        # 3. Check recipient
+        tx_recipient = tx.get("recipient", {}).get("userFriendlyAddress") or tx.get("recipient", {}).get("address")
+        if tx_recipient != recipient:
+            return {"valid": False, "reason": "Recipient mismatch"}
+            
+        # 4. Check amount
+        if tx.get("value") != amount_luna:
+            return {"valid": False, "reason": "Amount mismatch"}
+            
+        # 5. Check memo (data)
+        tx_data = tx.get("data")
+        if tx_data is None:
+            return {"valid": False, "reason": "Missing transaction data"}
+            
+        # Decode hex data safely
         try:
-            if isinstance(tx_data, str) and tx_data.startswith("0x"):
-                decoded_data = bytes.fromhex(tx_data[2:]).decode('utf-8', errors='strict')
-            else:
-                decoded_data = str(tx_data)
-                
-            # Exact equality check prevents substring injection attacks
-            if decoded_data != expected_memo:
-                return {"valid": False, "reason": f"Memo mismatch. Expected exact match: '{expected_memo}', Got: '{decoded_data}'"}
-        except ValueError as e:
-            return {"valid": False, "reason": f"Malformed transaction data (hex decode failed): {e}"}
-        except UnicodeDecodeError as e:
-            return {"valid": False, "reason": f"Malformed transaction data (utf-8 decode failed): {e}"}
-                
-        return {"valid": True, "reason": "Verified"}
-
+            hex_str = tx_data[2:] if tx_data.startswith("0x") else tx_data
+            decoded_data = bytes.fromhex(hex_str).decode('utf-8')
+        except (ValueError, UnicodeDecodeError):
+            return {"valid": False, "reason": "Malformed transaction data"}
+            
+        # STRICT EXACT MATCH for memo (prevents substring attacks)
+        if decoded_data != memo:
+            return {"valid": False, "reason": "Expected exact match for memo"}
+            
+        return {"valid": True}
+        
+    except httpx.RequestError as e:
+        logger.error(f"RPC Connection failed: {e}")
+        return {"valid": False, "reason": f"RPC connection error: {str(e)}"}
     except Exception as e:
-        logger.error(f"Failed to verify transaction {tx_hash}: {e}")
-        return {"valid": False, "reason": f"RPC error: {str(e)}"}
+        logger.error(f"Unexpected verification error: {e}")
+        return {"valid": False, "reason": "Internal verification error"}

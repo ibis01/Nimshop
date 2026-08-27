@@ -1,20 +1,14 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./nimshop.db"
-    frontend_url: str = "http://localhost:5173"
-    nimiq_network: str = "testnet"
-    nimiq_rpc_url: str = "https://node.nimiq.watch:443" # Configurable RPC endpoint
-    ai_provider: str = "mock"
-    openai_api_key: Optional[str] = None
-    openai_model: str = "gpt-4o-mini"
-    backend_host: str = "0.0.0.0"
-    backend_port: int = 8000
-    search_query_max_length: int = 500
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./nimshop.db")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    NIMIQ_RPC_URL: str = os.getenv("NIMIQ_RPC_URL", "https://rpc.testnet.nimiqwatch.com/")
+    NIMIQ_NETWORK: str = os.getenv("NIMIQ_NETWORK", "testnet")
+    ai_provider: str = os.getenv("AI_PROVIDER", "mock")
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    # Pydantic V2 configuration: load .env and ignore any extra unexpected variables
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

@@ -137,7 +137,7 @@ async def verify_order(req: OrderVerifyRequest, db: Session = Depends(get_db)):
         str(order.recipient_address), # type: ignore[arg-type]
         int(order.total_luna), # type: ignore[arg-type]
         str(order.memo), # type: ignore[arg-type]
-        settings.nimiq_network
+        settings.NIMIQ_NETWORK
     )
 
     if verification["valid"]:

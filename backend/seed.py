@@ -1,19 +1,11 @@
-"""
-Authoritative database seeding script.
-Usage: python seed.py (from backend directory)
-"""
 import uuid
 from datetime import datetime, timezone
 
-# Strict local imports to match the rest of the backend application
-# This prevents SQLAlchemy from registering tables twice under different module names
 from database import engine, Base, SessionLocal
 from models import Seller, Product
 
 def seed():
-    # SAFE: create_all only creates missing tables, it NEVER drops existing data
     Base.metadata.create_all(bind=engine)
-    
     db = SessionLocal()
     
     try:
@@ -31,10 +23,21 @@ def seed():
         db.commit()
 
         products_data = [
-            {"name": "Sony WH-1000XM5", "price_luna": 34000000, "category": "headphones", "description": "Industry-leading noise canceling wireless headphones.", "attributes": {"wireless": True, "noise_cancelling": True}},
-            {"name": "Apple AirPods Pro", "price_luna": 24000000, "category": "headphones", "description": "Active Noise Cancellation, Adaptive Transparency.", "attributes": {"wireless": True, "noise_cancelling": True}},
-            {"name": "Keychron K2 V2", "price_luna": 8900000, "category": "keyboards", "description": "Wireless mechanical keyboard with RGB backlight.", "attributes": {"wireless": True, "mechanical": True}},
-            {"name": "Logitech MX Master 3S", "price_luna": 9900000, "category": "mice", "description": "Wireless performance mouse with 8K DPI sensor.", "attributes": {"wireless": True, "ergonomic": True}},
+            {"name": "Sony WH-1000XM5", "price_luna": 34000000, "category": "headphones", "description": "Industry-leading noise canceling.", "attributes": {"wireless": True}},
+            {"name": "Apple AirPods Pro", "price_luna": 24000000, "category": "headphones", "description": "Active Noise Cancellation.", "attributes": {"wireless": True}},
+            {"name": "Bose QuietComfort 45", "price_luna": 32000000, "category": "headphones", "description": "Wireless noise cancelling.", "attributes": {"wireless": True}},
+            {"name": "Sennheiser HD 660S", "price_luna": 49000000, "category": "headphones", "description": "Open-back audiophile headphones.", "attributes": {"wireless": False}},
+            {"name": "Keychron K2 V2", "price_luna": 8900000, "category": "keyboards", "description": "Wireless mechanical keyboard.", "attributes": {"wireless": True}},
+            {"name": "Logitech MX Keys", "price_luna": 10000000, "category": "keyboards", "description": "Wireless illuminated keyboard.", "attributes": {"wireless": True}},
+            {"name": "Corsair K95 RGB", "price_luna": 19900000, "category": "keyboards", "description": "Premium mechanical gaming keyboard.", "attributes": {"wireless": False}},
+            {"name": "Logitech MX Master 3S", "price_luna": 9900000, "category": "mice", "description": "Wireless performance mouse.", "attributes": {"wireless": True}},
+            {"name": "Razer DeathAdder V3", "price_luna": 14900000, "category": "mice", "description": "Wireless esports gaming mouse.", "attributes": {"wireless": True}},
+            {"name": "Logitech G502", "price_luna": 12900000, "category": "mice", "description": "Wireless gaming mouse.", "attributes": {"wireless": True}},
+            {"name": "LG 27GP950-B", "price_luna": 79900000, "category": "monitors", "description": "27-inch 4K UHD gaming monitor.", "attributes": {"resolution": "4K"}},
+            {"name": "Dell UltraSharp U2720Q", "price_luna": 64900000, "category": "monitors", "description": "27-inch 4K USB-C monitor.", "attributes": {"resolution": "4K"}},
+            {"name": "Samsung Odyssey G7", "price_luna": 69900000, "category": "monitors", "description": "32-inch curved QHD monitor.", "attributes": {"resolution": "1440p"}},
+            {"name": "Anker 737 Power Bank", "price_luna": 14900000, "category": "accessories", "description": "24,000mAh 140W portable charger.", "attributes": {}},
+            {"name": "Elgato Stream Deck", "price_luna": 15900000, "category": "accessories", "description": "15 customizable LCD keys.", "attributes": {}}
         ]
 
         for p in products_data:
