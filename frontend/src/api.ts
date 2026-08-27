@@ -1,31 +1,20 @@
 import { SearchResponse, OrderIntent, OrderStatus } from "./types";
 
-// Use type assertion for Vite's import.meta.env if vite-env.d.ts is acting up
-const API_BASE =
-  (import.meta as any).env?.VITE_API_URL || "http://localhost:8000";
+const API_BASE = "http://localhost:8000";
 
 export async function searchProducts(query: string): Promise<SearchResponse> {
-  if (!query || query.trim().length === 0) {
-    throw new Error("Query cannot be empty");
-  }
-  if (query.length > 500) {
-    throw new Error("Query too long (max 500 characters)");
-  }
-
-  const response = await fetch(`${API_BASE}/api/search`, {
+  const res = await fetch(`${API_BASE}/api/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: query.trim() }),
+    body: JSON.stringify({ query }),
   });
 
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ detail: "Search failed" }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Search failed" }));
+    throw new Error(error.detail || `HTTP ${res.status}`);
   }
 
-  return response.json();
+  return res.json();
 }
 
 export async function createOrder(

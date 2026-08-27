@@ -11,3 +11,7 @@ dist/
 .pytest_cache/
 .mypy_cache/*.db
 *.db
+backend/nimshop.db
+backend/venv/
+frontend/node_modules/
+.env
