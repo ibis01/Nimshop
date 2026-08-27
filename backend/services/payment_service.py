@@ -33,16 +33,19 @@ async def verify_nimiq_transaction(tx_hash: str, recipient: str, amount_luna: in
         if tx.get("state") != "confirmed":
             return {"valid": False, "reason": "Transaction is not confirmed"}
             
-        # 2. Check network (Mainnet = 1, Testnet = 4)
+        # 2. STRICT NETWORK VALIDATION: mainnet = 1, testnet = 4
         tx_network_id = tx.get("networkId")
-        if network == "testnet" and tx_network_id == 1:
-            return {"valid": False, "reason": "Network mismatch"}
-        if network == "mainnet" and tx_network_id != 1:
+        expected_network_id = 4 if network == "testnet" else 1
+        if int(tx_network_id) != expected_network_id:
             return {"valid": False, "reason": "Network mismatch"}
             
-        # 3. Check recipient
+        # 3. NORMALIZED RECIPIENT COMPARISON
         tx_recipient = tx.get("recipient", {}).get("userFriendlyAddress") or tx.get("recipient", {}).get("address")
-        if tx_recipient != recipient:
+        # Normalize: remove spaces, uppercase
+        normalized_tx_recipient = str(tx_recipient).replace(" ", "").upper()
+        normalized_expected_recipient = str(recipient).replace(" ", "").upper()
+        
+        if normalized_tx_recipient != normalized_expected_recipient:
             return {"valid": False, "reason": "Recipient mismatch"}
             
         # 4. Check amount

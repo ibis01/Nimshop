@@ -141,3 +141,42 @@ def test_expired_reservation_and_inventory_restoration(client: TestClient, db_se
     assert product.inventory_quantity == 1 # Restored
     db_session.refresh(order)
     assert order.status == "cancelled"
+# --- MICRO-PATCH SECURITY TESTS ---
+
+@pytest.mark.asyncio
+async def test_verify_network_id_4_accepted_on_testnet():
+    """Test that network ID 4 is correctly accepted on testnet."""
+    mock_data = get_mock_tx_success()
+    mock_data["result"]["networkId"] = 4
+    with patch("httpx.AsyncClient.post", side_effect=make_mock_post(mock_data)):
+        result = await verify_nimiq_transaction("mock_tx_hash_123", "NQ00 DEMO", 100000, "NIMSHOP:test_order", "testnet")
+        assert result["valid"] is True
+
+@pytest.mark.asyncio
+async def test_verify_arbitrary_invalid_network_id_rejected():
+    """Test that arbitrary invalid network IDs (e.g., 99) are rejected."""
+    mock_data = get_mock_tx_success()
+    mock_data["result"]["networkId"] = 99
+    with patch("httpx.AsyncClient.post", side_effect=make_mock_post(mock_data)):
+        result = await verify_nimiq_transaction("mock_tx_hash_123", "NQ00 DEMO", 100000, "NIMSHOP:test_order", "testnet")
+        assert result["valid"] is False and "Network mismatch" in result["reason"]
+
+@pytest.mark.asyncio
+async def test_verify_normalized_recipient_accepted():
+    """Test that recipient formatting with spaces/case differences is accepted when semantically identical."""
+    mock_data = get_mock_tx_success()
+    # Mock returns a slightly different format (spaces, lowercase)
+    mock_data["result"]["recipient"]["userFriendlyAddress"] = "nq00 demo" 
+    with patch("httpx.AsyncClient.post", side_effect=make_mock_post(mock_data)):
+        # Expected has different casing and spacing
+        result = await verify_nimiq_transaction("mock_tx_hash_123", "NQ 00 DEMO", 100000, "NIMSHOP:test_order", "testnet")
+        assert result["valid"] is True
+
+@pytest.mark.asyncio
+async def test_verify_genuinely_wrong_recipient_rejected():
+    """Test that a genuinely different recipient is rejected even after normalization."""
+    mock_data = get_mock_tx_success()
+    mock_data["result"]["recipient"]["userFriendlyAddress"] = "NQ99 WRONG ADDRESS"
+    with patch("httpx.AsyncClient.post", side_effect=make_mock_post(mock_data)):
+        result = await verify_nimiq_transaction("mock_tx_hash_123", "NQ00 DEMO", 100000, "NIMSHOP:test_order", "testnet")
+        assert result["valid"] is False and "Recipient mismatch" in result["reason"]
