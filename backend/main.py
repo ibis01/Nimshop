@@ -151,3 +151,24 @@ async def verify_order(req: OrderVerifyRequest, db: Session = Depends(get_db)):
         order.status = "failed" # type: ignore[assignment]
         db.commit()
         raise HTTPException(status_code=400, detail=f"Verification failed: {verification['reason']}")
+# Temporary seeding endpoint for production deployment
+@app.post("/api/admin/seed")
+def seed_database(db: Session = Depends(get_db)):
+    """
+    One-time endpoint to seed the database with products.
+    Call this once after deployment, then remove this endpoint.
+    """
+    try:
+        # Check if products already exist
+        existing_count = db.query(Product).count()
+        if existing_count > 0:
+            return {"status": "already_seeded", "count": existing_count}
+        
+        # Import and run seed function
+        from seed import seed
+        seed()
+        
+        new_count = db.query(Product).count()
+        return {"status": "seeded", "count": new_count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Seeding failed: {str(e)}")
