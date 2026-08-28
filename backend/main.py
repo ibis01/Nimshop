@@ -18,6 +18,7 @@ from schemas import (
     OrderRequest, OrderIntentResponse, OrderVerifyRequest, OrderStatusResponse
 )
 from services.ai_service import ai_service, AIExtractionError
+from services.auto_seed import auto_seed_products
 from services.search_service import search_catalog
 from services.payment_service import verify_nimiq_transaction
 
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    auto_seed_products(db=SessionLocal())
     logger.info("Database initialized")
     yield
 
