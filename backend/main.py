@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from config import settings
-from database import get_db, init_db, SessionLocal, SessionLocal
+from database import get_db, init_db, SessionLocal, SessionLocal, SessionLocal
 from models import Order, Product
 from schemas import (
     SearchRequest, SearchResponse, HealthResponse, AIIntent,
